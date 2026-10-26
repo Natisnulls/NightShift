@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07080a">
+<title>NIGHTSHIFT // Pure Body Protocol</title>
+<meta name="description" content="8-week V-taper workout tracker. No gadgets. No shortcuts. Only the body.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080a'/%3E%3Cpath d='M4 26 L14 4 L18 4 L10 26Z M18 26 L28 4 L24 4 L16 22Z' fill='%23f5c518'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="fx fx-beam"></div><div class="fx fx-scan"></div><div class="fx fx-vig"></div>
+
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 28 L13 3 L18 3 L9 28Z"/><path d="M17 28 L29 3 L24 3 L14 24Z"/></svg>
+    <div>
+      <h1>NIGHTSHIFT</h1>
+      <p>PURE BODY PROTOCOL</p>
+    </div>
+  </div>
+  <div class="hud" id="hud"></div>
+</header>
+
+<main id="view"></main>
+
+<div class="rest" id="rest" hidden>
+  <div class="rest-l">REST</div>
+  <div class="rest-t" id="restT">00:00</div>
+  <button data-act="rest-add">+15</button>
+  <button data-act="rest-skip">SKIP</button>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="today">TRAIN</button>
+  <button data-tab="plan">PLAN</button>
+  <button data-tab="progress">RECORD</button>
+  <button data-tab="fuel">FUEL</button>
+  <button data-tab="system">SYSTEM</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
