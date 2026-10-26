@@ -4,16 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07080a">
+<meta name="color-scheme" content="dark">
 <title>NIGHTSHIFT // Pure Body Protocol</title>
-<meta name="description" content="8-week V-taper workout tracker. No gadgets. No shortcuts. Only the body.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307080a'/%3E%3Cpath d='M4 26 L14 4 L18 4 L10 26Z M18 26 L28 4 L24 4 L16 22Z' fill='%23f5c518'/%3E%3C/svg%3E">
+<meta name="description" content="8-week V-taper workout tracker. Calendar, streaks, form guides, double progression. No gadgets. No shortcuts. Only the body.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NIGHTSHIFT">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div class="fx fx-beam"></div><div class="fx fx-scan"></div><div class="fx fx-vig"></div>
+<div class="fx fx-beam" aria-hidden="true"><i></i></div>
+<div class="fx fx-rain" aria-hidden="true"></div>
+<div class="fx fx-scan" aria-hidden="true"></div>
+<div class="fx fx-vig" aria-hidden="true"></div>
 
 <header class="top">
   <div class="brand">
@@ -23,27 +33,32 @@
       <p>PURE BODY PROTOCOL</p>
     </div>
   </div>
-  <div class="hud" id="hud"></div>
+  <div class="hud" id="hud" aria-live="polite"></div>
+  <button class="sysbtn" data-tab="system" aria-label="System settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+  </button>
 </header>
 
 <main id="view"></main>
 
-<div class="rest" id="rest" hidden>
+<div class="rest" id="rest" hidden role="timer" aria-label="Rest timer">
   <div class="rest-l">REST</div>
   <div class="rest-t" id="restT">00:00</div>
   <button data-act="rest-add">+15</button>
   <button data-act="rest-skip">SKIP</button>
 </div>
 
-<nav class="tabs" id="tabs">
+<nav class="tabs" id="tabs" aria-label="Primary">
   <button data-tab="today">TRAIN</button>
+  <button data-tab="cal">CALENDAR</button>
   <button data-tab="plan">PLAN</button>
   <button data-tab="progress">RECORD</button>
   <button data-tab="fuel">FUEL</button>
-  <button data-tab="system">SYSTEM</button>
 </nav>
 
-<div class="toast" id="toast"></div>
-<script src="app.js"></script>
+<div class="ob" id="ob" hidden role="dialog" aria-modal="true" aria-labelledby="ob-title"></div>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-in" id="modalIn"></div></div>
+<div class="toast" id="toast" role="status" aria-live="assertive"></div>
+<script src="/app.js"></script>
 </body>
 </html>

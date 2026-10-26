@@ -1,0 +1,9 @@
+{
+  "name": "nightshift",
+  "private": true,
+  "version": "2.0.0",
+  "description": "NIGHTSHIFT // Pure Body Protocol — static offline workout tracker",
+  "scripts": {
+    "dev": "npx --yes serve@14 -l 3000 ."
+  }
+}
