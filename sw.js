@@ -1,6 +1,6 @@
 /* NIGHTSHIFT service worker — app shell offline. Same-origin: network-first with a short timeout, cache fallback. Fonts: cache-first. */
-const V = 'nightshift-shell-v2';
-const SHELL = ['/', '/styles.css', '/app.js', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];
+const V = 'nightshift-shell-v3';
+const SHELL = ['/', '/styles.css', '/app.js', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png', '/img/hunter.webp', '/img/knight.webp'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
