@@ -23,6 +23,8 @@ const r05=v=>Math.round(v*2)/2;
 const yt=(q,form=true)=>'https://www.youtube.com/results?search_query='+encodeURIComponent(form?q+' proper form':q).replace(/%20/g,'+');
 const ICON={
   play:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  stop:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/></svg>',
   flame:'<svg viewBox="0 0 24 24" aria-hidden="true"><path class="flame" d="M12 1.5c.6 3.6 4.2 5.6 5.4 9.2 1.3 4-1.2 9.8-5.4 11.8-4.2-2-6.7-6.4-5.7-10.2.5-2 1.8-3 2.4-4.8 1.3 1.2 1.8 2.6 1.9 4 1.3-2.6 1.9-6.3 1.4-10z"/></svg>',
   shield:(full)=>`<svg viewBox="0 0 24 24" aria-hidden="true" class="shield"><path d="M12 1.8 20.5 5v6.4c0 5.3-3.6 9.3-8.5 10.9-4.9-1.6-8.5-5.6-8.5-10.9V5z"/>${full?'<path class="fill" d="M12 4.2 18.3 6.6v4.8c0 4-2.6 7.1-6.3 8.5-3.7-1.4-6.3-4.5-6.3-8.5V6.6z"/>':''}</svg>`
 };
@@ -123,7 +125,14 @@ function clean(d,existing){
   const dl={};if(o.daily&&typeof o.daily==='object')Object.entries(o.daily).forEach(([k,v])=>{if(DATE_RE.test(k)&&v)dl[k]={water:+v.water||0,steps:+v.steps||0,protein:+v.protein||0,kcal:+v.kcal||0}});o.daily=dl;
   const wk={};if(o.weeks&&typeof o.weeks==='object')Object.entries(o.weeks).forEach(([k,v])=>{if(+k>0&&v&&(v.split==='3'||v.split==='4'))wk[+k]={split:v.split,days:validDays(v.days)?v.days:o.days3}});o.weeks=wk;
   if(o.draft&&!(W[o.draft.key]&&o.draft.sets&&typeof o.draft.sets==='object'))o.draft=null;
-  if(o.draft){o.draft.warm=Array.isArray(o.draft.warm)&&o.draft.warm.length===WARM.length?o.draft.warm:WARM.map(()=>false);o.draft.date=DATE_RE.test(o.draft.date)?o.draft.date:today();o.draft.t0=+o.draft.t0||Date.now()}
+  if(o.draft){o.draft.warm=Array.isArray(o.draft.warm)&&o.draft.warm.length===WARM.length?o.draft.warm:WARM.map(()=>false);o.draft.date=DATE_RE.test(o.draft.date)?o.draft.date:today();o.draft.t0=+o.draft.t0||Date.now();
+    const dr=o.draft,nEx=W[dr.key].ex.length;
+    W[dr.key].ex.forEach(x=>{if(!Array.isArray(dr.sets[x.id]))dr.sets[x.id]=Array.from({length:x.sets},()=>({w:'',r:'',done:false}))});
+    dr.cx=Number.isInteger(dr.cx)&&dr.cx>=-1&&dr.cx<=nEx?dr.cx:-1;
+    dr.ramp=Array.isArray(dr.ramp)&&dr.ramp.length===2?dr.ramp.map(Boolean):[false,false];
+    dr.paused=!!dr.paused;dr.pauseT0=+dr.pauseT0||Date.now();dr.pausedMs=+dr.pausedMs||0;
+    dr.rest=dr.rest&&+dr.rest.end>0&&+dr.rest.total>0?{end:+dr.rest.end,total:+dr.rest.total,kind:String(dr.rest.kind||'set'),left:+dr.rest.left||0}:null;
+    dr.hold=dr.hold&&EX[dr.hold.id]&&+dr.hold.t0>0?{id:dr.hold.id,i:+dr.hold.i||0,t0:+dr.hold.t0}:null}
   if(!TABS.includes(o.tab))o.tab='today';
   if(typeof o.onboarded!=='boolean')o.onboarded=!!existing;
   return o;
@@ -225,7 +234,7 @@ function startSession(key){
     sets[x.id]=Array.from({length:x.sets},()=>({w,r:'',done:false}));
     if(ph&&ph.k===3&&EX[x.id].drop)sets[x.id].push({w:'',r:'',done:false,drop:true});
   });
-  S.draft={key,t0:Date.now(),date:t,ph:ph?ph.k:0,warm:WARM.map(()=>false),sets};
+  S.draft={key,t0:Date.now(),date:t,ph:ph?ph.k:0,warm:WARM.map(()=>false),sets,cx:-1,ramp:[false,false],paused:false,pauseT0:0,pausedMs:0,rest:null,hold:null};
   S.tab='today';save();render();window.scrollTo({top:0});
 }
 function finishSession(){
@@ -241,11 +250,11 @@ function finishSession(){
     }
   });
   if(!n){toast('LOG AT LEAST ONE SET',true);return}
-  const dur=Math.round((Date.now()-d.t0)/1000);
+  const dur=Math.round(elapsed(d));
   S.logs.push({date:d.date||today(),key:d.key,dur,sets:out});
   S.draft=null;stopRest();S.tab='cal';S.calSel=null;save();render();window.scrollTo({top:0});
   const st=streaks(),ws=weekStat(sched().cw),f=focus();
-  showModal(`<div class="tape">${W[d.key].sub}</div>
+  showModal(`<div class="done-art" aria-hidden="true"></div><div class="tape red">${W[d.key].sub}</div>
     <h2 id="modal-title" class="big">SESSION COMPLETE.</h2>
     <p class="mono mute">${W[d.key].name} · ${fmt(dur)} · ${n} SETS · ${Math.round(vol).toLocaleString()} KG</p>
     ${prs.length?`<div class="card red"><div class="kick red-t">NEW RECORDS</div><ul class="rules">${prs.map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`:''}
@@ -256,18 +265,98 @@ function finishSession(){
   if(prs.length)prfx(false);
 }
 
-/* ---------- REST TIMER / AUDIO ---------- */
-let restEnd=0,actx=null;
-function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;g.gain.value=.15;o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.25);navigator.vibrate&&navigator.vibrate([120,60,120])}catch(e){}}
-function startRest(sec){restEnd=Date.now()+sec*1000;$('#rest').hidden=false;tickRest()}
-function stopRest(){restEnd=0;$('#rest').hidden=true}
-function tickRest(){
-  if(!restEnd)return;
-  const left=Math.ceil((restEnd-Date.now())/1000),r=$('#rest');
-  if(left<=0){beep();stopRest();toast('REST OVER. BACK TO WORK.');return}
-  $('#restT').textContent=fmt(left);r.classList.toggle('low',left<=5);
+/* ---------- GUIDED SESSION ENGINE ----------
+   One active exercise at a time. Rest after a set = that lift's prescribed rest.
+   Before a drop set = 10s (strip the weight, no real rest). Between exercises = the longer of the two
+   lifts' rests (recovery + station setup). Ramp sets: 45s then 60s. All timers are timestamp-based so
+   they stay accurate in the background and survive a refresh; pause freezes both clock and rest. */
+let actx=null,lastCue=-1;
+const RING=2*Math.PI*88;
+function audio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume()}catch(e){}return actx}
+function tone(f,ms,vol=.15){try{const a=audio();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.frequency.value=f;g.gain.value=vol;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+ms/1000)}catch(e){}}
+function beep(){tone(880,220);setTimeout(()=>tone(1320,320),260);navigator.vibrate&&navigator.vibrate([120,60,120])}
+function cue(){tone(560,90,.1);navigator.vibrate&&navigator.vibrate(30)}
+const elapsed=d=>Math.max(0,(Date.now()-d.t0-(d.pausedMs||0)-(d.paused?Date.now()-d.pauseT0:0))/1000);
+const exList=d=>W[d.key].ex;
+const openIdx=(d,id)=>(d.sets[id]||[]).findIndex(s=>!s.done);
+function nextOpenEx(d,from){const l=exList(d);for(let i=Math.max(0,from);i<l.length;i++)if(openIdx(d,l[i].id)>=0)return i;for(let i=0;i<Math.min(from,l.length);i++)if(openIdx(d,l[i].id)>=0)return i;return -1}
+function tally(d){let done=0,total=0,vol=0;exList(d).forEach(x=>(d.sets[x.id]||[]).forEach(s=>{total++;if(s.done){done++;vol+=(+s.w||0)*(+s.r||0)}}));return {done,total,vol}}
+const restMs=d=>d.rest?(d.paused?d.rest.left:d.rest.end-Date.now()):0;
+function startRest(sec,kind='set'){const d=S.draft;if(!d)return;lastCue=-1;d.rest={end:Date.now()+sec*1000,total:sec,kind,left:sec*1000}}
+function stopRest(){if(S.draft)S.draft.rest=null;$('#rest').hidden=true}
+function endRest(auto){
+  const d=S.draft;if(!d||!d.rest)return;
+  d.rest=null;save();
+  if(auto){beep();toast('REST OVER. BACK TO WORK.')}
+  if(S.tab==='today'){keepScroll(render);const a=$('#actSet');a&&a.scrollIntoView({block:'nearest',behavior:RM.matches?'auto':'smooth'})}
+  else $('#rest').hidden=true;
 }
-setInterval(()=>{tickRest();const t=$('#sessT');if(t&&S.draft)t.textContent=fmt((Date.now()-S.draft.t0)/1000)},500);
+function adjustRest(sec){
+  const d=S.draft;if(!d||!d.rest)return;
+  if(d.paused)d.rest.left=Math.max(1000,d.rest.left+sec*1000);
+  else d.rest.end=Math.max(Date.now()+1000,d.rest.end+sec*1000);
+  d.rest.total=Math.max(d.rest.total,Math.ceil(restMs(d)/1000));save();tick();
+}
+function setPause(on){
+  const d=S.draft;if(!d||d.paused===on)return;const now=Date.now();
+  if(on){d.paused=true;d.pauseT0=now;if(d.rest)d.rest.left=Math.max(0,d.rest.end-now)}
+  else{const gap=now-d.pauseT0;d.pausedMs=(d.pausedMs||0)+gap;d.paused=false;if(d.rest)d.rest.end=now+(d.rest.left||0);if(d.hold)d.hold.t0+=gap}
+  save();keepScroll(render);toast(on?'SESSION PAUSED':'BACK TO WORK.');
+}
+function prepActive(d){
+  const l=exList(d);if(d.cx<0||d.cx>=l.length)return;
+  const x=l[d.cx],i=openIdx(d,x.id);if(i<0)return;
+  const s=d.sets[x.id][i],last=lastSets(x.id);let ch=false;
+  if(s.drop&&s.w===''){const v=dropW(x.id);if(v!==''){s.w=String(v);ch=true}}
+  if(!s.drop&&s.w===''&&i>0){const p=d.sets[x.id][i-1];if(p&&p.w!==''){s.w=p.w;ch=true}}
+  if(s.r===''){s.r=String(s.drop?6:(last&&last[i]&&last[i].r)||x.lo);ch=true}
+  if(ch)save();
+}
+function completeSet(id,i){
+  const d=S.draft,l=exList(d),xi=l.findIndex(x=>x.id===id),x=l[xi],s=d.sets[id][i];
+  if(!(+s.r>0)){toast(EX[id].t==='hold'?'ENTER SECONDS FIRST':'ENTER REPS FIRST',true);return false}
+  if(s.drop&&s.w==='')s.w=String(dropW(id));
+  s.done=true;slash();
+  if(!s.drop&&weighted(id)&&+s.w>0){
+    const prev=bestE1(id),v=e1rm(+s.w,+s.r);
+    const others=d.sets[id].filter(o=>o!==s&&o.done&&!o.drop&&+o.w>0).map(o=>e1rm(+o.w,+o.r));
+    if(prev!==null&&v>prev+0.01&&(!others.length||v>Math.max(...others)+0.01))prfx(true,EX[id].n);
+  }
+  const ni=openIdx(d,id);
+  if(ni>=0){d.cx=xi;d.sets[id][ni].drop?startRest(10,'drop'):startRest(x.rest,'set')}
+  else{
+    const nx=nextOpenEx(d,xi+1);
+    if(nx<0){d.cx=l.length;d.rest=null;toast('ALL SETS DONE. LOG IT.')}
+    else{d.cx=nx;startRest(Math.max(x.rest,l[nx].rest),'trans')}
+  }
+  return true;
+}
+function tick(){
+  const d=S.draft;if(!d)return;
+  const st=$('#sessT');if(st)st.textContent=fmt(elapsed(d));
+  if(d.rest){
+    const ms=restMs(d),left=Math.ceil(ms/1000);
+    if(!d.paused&&ms<=0){endRest(true);return}
+    const txt=fmt(left);
+    document.querySelectorAll('[data-rest-t]').forEach(el=>{if(el.textContent!==txt)el.textContent=txt});
+    const ring=$('#restRing');if(ring)ring.style.strokeDashoffset=String(RING*(1-Math.max(0,ms)/(d.rest.total*1000)));
+    $('#rest').classList.toggle('low',left<=5);const rp=$('#restPanel');rp&&rp.classList.toggle('low',left<=5);
+    if(!d.paused&&left<=3&&left!==lastCue){lastCue=left;cue()}
+  }
+  if(d.hold&&!d.paused){
+    const s=Math.floor((Date.now()-d.hold.t0)/1000),el=$('#holdT');if(el)el.textContent=fmt(s);
+    const x=exList(d).find(x=>x.id===d.hold.id);
+    if(x&&(s===x.lo||s===x.hi)&&d.hold.cued!==s){d.hold.cued=s;beep();toast(s===x.hi?'TOP OF RANGE. STOP WHEN READY.':'TARGET HIT. HOLD ON.')}
+  }
+}
+setInterval(tick,250);
+let wake=null,wakeBusy=false;
+async function syncWake(){
+  const want=!!(S.draft&&!S.draft.paused&&!document.hidden);
+  if(wakeBusy||!('wakeLock' in navigator))return;wakeBusy=true;
+  try{if(want&&!wake){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>{wake=null})}else if(!want&&wake){await wake.release();wake=null}}catch(e){wake=null}
+  wakeBusy=false;
+}
 
 /* ---------- FX ---------- */
 const RM=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -324,73 +413,153 @@ function hud(){
   const w=weekOf(today()),st=streaks(),ws=weekStat(sched().cw);
   $('#hud').innerHTML=`<div>WEEK<b>${w<1?'—':w>8?'8+':w}</b></div><div class="${st.broken&&!st.cur?'bad':''}">STREAK<b>${ICON.flame}${st.cur}</b></div><div class="${ws.missed?'bad':''}">DONE<b>${ws.done}/${ws.total}</b></div>`;
 }
+const pageHead=(art,kick,title,sub)=>`<header class="ph ph-${art}"><div class="ph-in">${kick?`<div class="kick">${kick}</div>`:''}<h2>${title}</h2>${sub?`<p class="ph-sub">${sub}</p>`:''}</div></header>`;
 function vToday(){
   if(S.draft)return vSession();
   const t=today(),w=weekOf(t),ph=phaseOfWeek(w),f=focus(),st=streaks(),ws=weekStat(sched().cw);
-  let h=`<div class="kick">${pd(t).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}).toUpperCase()}</div>`;
-  h+=`<h2>${t<S.start?'PROTOCOL BEGINS IN '+dayDiff(t,S.start)+' DAY'+(dayDiff(t,S.start)>1?'S':''):'THE WORK DOESN&apos;T WAIT.'}</h2>`;
-  h+=`<div class="streak">${streakTile(st)}${weekTile(ws)}</div>`;
-  const hero=(slot,kick,cls,btn)=>{const wk=W[slot.key];return `<div class="card hero ${cls}"><div class="kick">${kick}</div><h3 style="font-size:34px;color:var(--ink);margin:4px 0">${wk.name}</h3>
-    <div class="spec">${wk.sub} · ${shortDate(slot.date)} · ${wk.ex.length} LIFTS</div>
+  let h=pageHead('hunter',pd(t).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}).toUpperCase(),
+    t<S.start?'PROTOCOL BEGINS IN '+dayDiff(t,S.start)+' DAY'+(dayDiff(t,S.start)>1?'S':''):'THE WORK DOESN&apos;T WAIT.','NO GADGETS. NO SHORTCUTS. ONLY THE BODY.');
+  h+=`<div class="cols"><div class="col-a"><div class="streak">${streakTile(st)}${weekTile(ws)}</div>`;
+  const hero=(slot,kick,cls,btn)=>{const wk=W[slot.key],n=wk.ex.reduce((a,x)=>a+x.sets,0);return `<div class="card hero ${cls}"><div class="kick">${kick}</div><h3 class="hero-t">${wk.name}</h3>
+    <div class="spec">${wk.sub} · ${shortDate(slot.date)} · ${wk.ex.length} LIFTS · ${n} WORKING SETS</div>
     <ul class="exl">${wk.ex.map(x=>`<li><span class="nm">${esc(x.label||EX[x.id].n)}<small>${repTxt(x)} · REST ${restTxt(x)}</small></span>${watch(EX[x.id].q,'FORM')}</li>`).join('')}</ul>
+    <p class="guide-note mono">GUIDED · ONE LIFT AT A TIME · AUTO REST COUNTDOWNS</p>
     <button class="btn xl block ${cls==='red'?'red':''}" style="margin-top:12px" data-start="${slot.key}">${btn}</button></div>`};
   if(f.ts&&f.ts.st==='today')h+=hero(f.ts,'TODAY · SCHEDULED','', 'ENGAGE »');
   else if(f.missed.length)h+=`<div class="hazard red"></div>`+hero(f.missed[0],'YOU MISSED ONE. CORRECT IT. · MAKE-UP','red','CORRECT IT »');
   else if(f.ts&&f.ts.st==='done')h+=`<div class="card hero"><div class="tape">SESSION COMPLETE.</div><p style="margin-top:10px">${W[f.ts.key].name} is logged. Recover. Eat. Sleep.</p>${f.next?`<p class="kick" style="margin-top:8px">NEXT · ${shortDate(f.next.date)} · ${W[f.next.key].sub}</p>`:''}</div>`;
   else if(t>=S.start||f.next)h+=`<div class="card hero flat"><div class="tape ghost">REST DAY</div><p style="margin-top:10px">No session scheduled. A rest day never breaks the streak.</p>${f.next?`<p class="kick" style="margin-top:8px">NEXT · ${shortDate(f.next.date)} · ${W[f.next.key].sub} — ${W[f.next.key].name}</p>`:''}</div>`;
-  h+=phaseCard(ph,w);
   const cfg=weekCfg(Math.max(1,w));
   h+=`<div class="sect"><div class="kick">OFF-SCRIPT · PICK ANY SESSION · ${cfg.split}-DAY SPLIT</div>${flexCtl(Math.max(1,w),'FLEX THIS WEEK')}<div class="pick">`;
   const tk=f.ts&&f.ts.st==='today'?f.ts.key:null,nk=tk||(f.missed[0]&&f.missed[0].key)||(f.next&&f.next.key);
   SPLITS[cfg.split].keys.forEach(k=>{const nx=nk===k;h+=`<button data-start="${k}" class="${nx?'next':''}"><div><small>${W[k].sub}${nx?(k===tk?' · TODAY':' · UP NEXT'):''}</small><b>${W[k].name}</b></div><span class="go">ENGAGE »</span></button>`});
-  h+=`</div></div><div class="hazard"></div>`+warmCard(null);
+  h+=`</div></div></div><div class="col-b">`+phaseCard(ph,w);
   const last=S.logs[S.logs.length-1];
-  if(last)h+=`<div class="card flat"><div class="kick">LAST SESSION</div><div class="row between"><b style="font-family:var(--disp);font-size:24px;letter-spacing:.08em;font-weight:400">${W[last.key].name}</b><span class="mono mute">${last.date} · ${fmt(last.dur)}</span></div></div>`;
+  if(last)h+=`<div class="card flat"><div class="kick">LAST SESSION</div><div class="row between"><b class="disp-b">${W[last.key].name}</b><span class="mono mute">${last.date} · ${fmt(last.dur)}</span></div></div>`;
+  h+=`<div class="hazard"></div>`+warmCard(null)+`</div></div>`;
   return h;
 }
+const TYPE={bb:'BARBELL',db:'DUMBBELL',cb:'CABLE / MACHINE',bw:'BODYWEIGHT',hold:'TIMED HOLD'};
+const stepper=(id,i,f,label,val,step,ph)=>`<div class="stp"><label class="lbl" for="st-${id}-${i}-${f}">${label}</label><div class="stp-r"><button data-step="${id}:${i}:${f}:${-step}" aria-label="Decrease ${label.toLowerCase()} by ${step}">−</button><input id="st-${id}-${i}-${f}" inputmode="decimal" data-ex="${id}" data-i="${i}" data-f="${f}" value="${esc(val)}" placeholder="${esc(ph||'')}"><button data-step="${id}:${i}:${f}:${step}" aria-label="Increase ${label.toLowerCase()} by ${step}">+</button></div></div>`;
 function vSession(){
-  const d=S.draft,wk=W[d.key],ph=PH(d.ph),w=weekOf(d.date),ti=targetIdx(w);
-  let h=`<div class="kick">${wk.sub} · ${ph?'PHASE '+ph.k+' · '+ph.rpe:'OFF-PROTOCOL'}</div><h2>${wk.name}</h2>`;
-  h+=`<div class="sess"><div><div class="kick">SESSION CLOCK</div><div class="timer" id="sessT">${fmt((Date.now()-d.t0)/1000)}</div></div><div class="row"><button class="btn ghost sm" data-act="abort">ABORT</button><button class="btn sm" data-act="finish">COMPLETE</button></div></div>`;
+  const d=S.draft,wk=W[d.key],ph=PH(d.ph),w=weekOf(d.date),ti=targetIdx(w),l=wk.ex,n=l.length;
+  prepActive(d);
+  const tl=tally(d),pct=tl.total?Math.round(tl.done/tl.total*100):0;
+  let h=`<div class="kick">${wk.sub} · ${ph?'PHASE '+ph.k+' · '+ph.rpe:'OFF-PROTOCOL'} · GUIDED SESSION</div><h2 class="sname">${wk.name}</h2>`;
+  h+=`<section class="sbar ${d.paused?'paused':''}" aria-label="Session controls">
+    <div class="clock"><span class="kick">${d.paused?'PAUSED':'SESSION CLOCK'}</span><span class="timer" id="sessT">${fmt(elapsed(d))}</span></div>
+    <div class="sbar-c">
+      <button class="btn ${d.paused?'':'ghost'} sm" data-act="${d.paused?'resume':'pause'}">${d.paused?ICON.play+'RESUME':ICON.pause+'PAUSE'}</button>
+      <button class="btn ghost sm" data-act="end">${ICON.stop}END</button>
+    </div>
+    <div class="sprog" role="progressbar" aria-label="Sets completed" aria-valuemin="0" aria-valuemax="${tl.total}" aria-valuenow="${tl.done}">
+      ${l.map((x,xi)=>{const a=d.sets[x.id]||[],dn=a.filter(s=>s.done).length;return `<i class="${xi===d.cx?'cur':''}" style="flex:${a.length||1}"><b style="width:${a.length?dn/a.length*100:0}%"></b></i>`}).join('')}
+    </div>
+    <div class="sprog-t mono">${tl.done}/${tl.total} SETS · ${pct}%</div>
+  </section>`;
+  h+=`<div class="scols"><div class="smain">`;
+  if(d.paused)h+=`<section class="pausep" role="status"><div class="tape ghost">PAUSED</div><p>Session clock and rest countdown are frozen. Nothing is lost.</p><button class="btn xl block" data-act="resume">${ICON.play}RESUME</button></section>`;
+  if(d.rest)h+=restPanel(d);
+  if(d.cx<0)h+=warmStage(d);
+  else if(d.cx>=n)h+=summaryStage(d);
+  else h+=exStage(d,d.cx,w,ti);
+  h+=`</div><aside class="sside" aria-label="Session overview">${mapCard(d)}`;
   if(ph)h+=`<div class="card ${ph.k===3?'red':''}"><div class="kick">PHASE ${ph.k} DIRECTIVES · ${ph.n}</div><ul class="rules">${ph.rules.map(r=>`<li>${r}</li>`).join('')}</ul><div class="row" style="margin-top:8px">${ph.tech.map(k=>watch(TECH[k][1],TECH[k][0],false,ph.k===3?'red':'')).join('')}</div></div>`;
-  h+=warmCard(d);
-  wk.ex.forEach((x,xi)=>{
-    const e=EX[x.id],sets=d.sets[x.id]||[],last=lastSets(x.id),p=prog(x);
-    h+=`<section class="card" aria-label="${esc(x.label||e.n)}"><div class="ex-h"><h3>${xi+1}. ${esc((x.label||e.n).toUpperCase())}</h3>${watch(e.q)}</div>
-      <div class="spec">${repTxt(x)} · REST ${restTxt(x)}</div>`;
-    if(e.tg&&w>=1)h+=`<div class="tgt">WEEK ${[1,4,8][ti]} TARGET · ${e.tg[ti].toUpperCase()}</div>`;
-    if(p)h+=`<div class="prog ${p.state}">${d.ph===2?'AGGRESSIVE · ':''}${progTxt(x,p)}</div>`;
-    if(xi===0&&weighted(x.id)){const b=+(sets[0]&&sets[0].w)||0;h+=`<div class="note y"><b>RAMP</b> ${b?`${r05(b*.5)} kg × 8 → ${r05(b*.75)} kg × 4`:'50% × 8 → 75% × 4'} before working sets.</div>`}
-    if(d.ph===1&&e.t!=='hold')h+=`<div class="note y"><b>TEMPO</b> 3-second negative every rep. 2 reps in the tank. ${watch(TECH.neg[1],'TEMPO',false)}</div>`;
-    if(d.ph===2)h+=`<div class="note y"><b>RPE 8.5–9</b> Close to technical failure.</div>`;
-    if(d.ph===3&&e.drop)h+=`<div class="note"><b>DROP SET</b> Final set: at failure cut weight 30%, push 6–8 more reps. ${watch(TECH.drop[1],'DROP SET',false,'red')}</div>`;
-    const wl=e.t==='db'?'KG / DB':e.t==='bw'||e.t==='hold'?'+KG':'KG';
-    h+=`<div class="sets"><span class="hd">#</span><span class="hd">${wl}</span><span class="hd">${e.t==='hold'?'SEC':'REPS'}</span><span class="hd">DONE</span>`;
-    sets.forEach((s,i)=>{
-      const pv=!s.drop&&last&&last[i],lbl=s.drop?'Drop set':'Set '+(i+1);
-      const wph=s.drop?(dropW(x.id)||'−30%'):(e.t==='bw'||e.t==='hold'?'0':'kg');
-      h+=`<span class="n ${s.drop?'dr':''}" aria-hidden="true">${s.drop?'D':i+1}</span>
-        <input class="${s.drop?'dr':''}" aria-label="${lbl} weight" inputmode="decimal" data-ex="${x.id}" data-i="${i}" data-f="w" value="${esc(s.w)}" placeholder="${wph}">
-        <input class="${s.drop?'dr':''}" aria-label="${lbl} ${e.t==='hold'?'seconds':'reps'}" inputmode="numeric" data-ex="${x.id}" data-i="${i}" data-f="r" value="${esc(s.r)}" placeholder="${s.drop?'6–8':x.lo===x.hi?x.lo:x.lo+'–'+x.hi}">
-        <button class="done ${s.drop?'dr':''} ${s.done?'on':''}" data-done="${x.id}:${i}" aria-pressed="${!!s.done}" aria-label="Mark ${lbl.toLowerCase()} done">${s.done?'✓':s.drop?'DROP':'SET'}</button>`;
-      if(pv)h+=`<span class="prev">LAST: ${pv.w?pv.w+' kg × ':''}${pv.r}</span>`;
-      if(s.drop)h+=`<span class="prev dr">DROP · −30% · 6–8 MORE REPS</span>`;
-    });
-    h+=`</div></section>`;
-  });
-  h+=`<p class="mono mute" style="font-size:11px">${REST_NOTE}</p><button class="btn xl block" style="margin-top:12px" data-act="finish">COMPLETE SESSION</button>`;
+  h+=`<p class="mono mute fine">${REST_NOTE} Drop sets follow the final set with only a 10s strip. Between lifts the timer uses the longer of the two rests for station setup.</p>`;
+  h+=`<button class="btn block" data-act="finish">COMPLETE SESSION</button><button class="btn ghost block sm" style="margin-top:8px" data-act="abort">ABORT</button></aside></div>`;
   return h;
+}
+function restPanel(d){
+  const l=exList(d),ms=Math.max(0,restMs(d)),k=d.rest.kind;
+  const K={set:'REST',trans:'TRANSITION',drop:'DROP SET · STRIP IT',ramp:'RAMP REST'}[k]||'REST';
+  const sub={set:'Recover. Breathe. Same station.',trans:'Move to the next station. Load it. Set up.',drop:'Cut the weight 30%. Go straight back in.',ramp:'Let the nervous system settle before the next ramp.'}[k]||'';
+  let nx='';
+  if(d.cx>=0&&d.cx<l.length){const x=l[d.cx],i=openIdx(d,x.id);if(i>=0){const s=d.sets[x.id][i],tot=d.sets[x.id].filter(z=>!z.drop).length;
+    nx=`<div class="nextup"><span class="kick">UP NEXT</span><b>${esc(x.label||EX[x.id].n)}</b><span class="mono">${s.drop?'DROP SET':'SET '+(i+1)+' / '+tot} · ${s.w?esc(s.w)+' KG × ':''}${esc(s.r||x.lo)}${EX[x.id].t==='hold'?' SEC':' REPS'}</span></div>`}}
+  return `<section class="restp ${k}" id="restPanel" role="timer" aria-label="${K} countdown">
+    <div class="ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle class="trk" cx="100" cy="100" r="88"/><circle id="restRing" class="arc" cx="100" cy="100" r="88" style="stroke-dasharray:${RING};stroke-dashoffset:${RING*(1-ms/(d.rest.total*1000))}"/></svg>
+      <div class="ring-c"><span class="kick">${K}</span><b data-rest-t>${fmt(Math.ceil(ms/1000))}</b><span class="mono mute">OF ${fmt(d.rest.total)}</span></div></div>
+    <div class="restp-r"><p class="restp-sub">${sub}</p>${nx}
+      <div class="row"><button class="btn ghost sm" data-act="rest-sub" aria-label="Remove 15 seconds">−15</button><button class="btn ghost sm" data-act="rest-add" aria-label="Add 15 seconds">+15</button><button class="btn sm" data-act="rest-skip">SKIP REST »</button></div>
+      <p class="mono mute fine">${d.paused?'PAUSED':'AUTO-ADVANCES WHEN THE TIMER HITS ZERO.'}</p></div>
+  </section>`;
+}
+function warmStage(d){
+  const c=d.warm.filter(Boolean).length;
+  return `<div class="stage-k kick">STAGE 00 · PRIME THE BODY</div>${warmCard(d)}
+    <button class="btn xl block" data-act="warm-go">${c===WARM.length?'BEGIN WORKING SETS »':c?'CONTINUE TO WORKING SETS »':'SKIP WARM-UP · BEGIN »'}</button>`;
+}
+function exStage(d,xi,w,ti){
+  const l=exList(d),n=l.length,x=l[xi],e=EX[x.id],sets=d.sets[x.id]||[],last=lastSets(x.id),p=prog(x),ai=openIdx(d,x.id),name=x.label||e.n;
+  let h=`<section class="card exc ${d.rest?'resting':''}" aria-labelledby="exn"><div class="exc-top"><span class="exno" aria-hidden="true">${pad(xi+1)}<small>/${pad(n)}</small></span>
+    <div class="exc-t"><div class="kick">EXERCISE ${xi+1} OF ${n} · ${TYPE[e.t]}</div><h3 id="exn">${esc(name.toUpperCase())}</h3><div class="spec">${repTxt(x)} · REST ${restTxt(x)}</div></div></div>
+    <div class="row">${watch(e.q,'WATCH FORM DEMO',true,'big')}</div>`;
+  if(e.tg&&w>=1)h+=`<div class="tgt">WEEK ${[1,4,8][ti]} TARGET · ${e.tg[ti].toUpperCase()}</div>`;
+  if(p)h+=`<div class="prog ${p.state}">${d.ph===2?'AGGRESSIVE · ':''}${progTxt(x,p)}</div>`;
+  if(xi===0&&weighted(x.id)){
+    const b=+(sets[0]&&sets[0].w)||0;
+    h+=`<div class="ramp"><div class="note y"><b>RAMP</b> ${b?`${r05(b*.5)} kg × 8 → ${r05(b*.75)} kg × 4`:'50% × 8 → 75% × 4'} before working sets. ${watch(TECH.ramp[1],TECH.ramp[0],false)}</div>
+      ${[[.5,8,45],[.75,4,60]].map(([f,r,rs],ri)=>`<button class="chk" data-ramp="${ri}" aria-pressed="${!!d.ramp[ri]}"><span class="box"></span><span class="t"><span>RAMP ${ri+1} · ${b?r05(b*f)+' KG':Math.round(f*100)+'%'} × ${r}</span><small>WARM-UP SET · NOT LOGGED · ${rs}s REST AFTER</small></span></button>`).join('')}</div>`;
+  }
+  if(d.ph===1&&e.t!=='hold')h+=`<div class="note y"><b>TEMPO</b> 3-second negative every rep. 2 reps in the tank. ${watch(TECH.neg[1],'TEMPO',false)}</div>`;
+  if(d.ph===2)h+=`<div class="note y"><b>RPE 8.5–9</b> Close to technical failure.</div>`;
+  if(d.ph===3&&e.drop)h+=`<div class="note"><b>DROP SET</b> Final set: at failure cut weight 30%, push 6–8 more reps. ${watch(TECH.drop[1],'DROP SET',false,'red')}</div>`;
+  const wl=e.t==='db'?'KG / DB':e.t==='bw'||e.t==='hold'?'+KG':'KG',rl=e.t==='hold'?'SECONDS':'REPS';
+  const wph=s=>s.drop?(dropW(x.id)||'−30%'):(e.t==='bw'||e.t==='hold'?'0':'kg');
+  if(ai>=0){
+    const s=sets[ai],tot=sets.filter(z=>!z.drop).length,pv=!s.drop&&last&&last[ai];
+    const held=d.hold&&d.hold.id===x.id&&d.hold.i===ai;
+    h+=`<div class="act ${s.drop?'dr':''}" id="actSet"><div class="act-h"><b>${s.drop?'DROP SET':'SET '+(ai+1)+' <small>OF '+tot+'</small>'}</b><span class="mono">TARGET ${s.drop?'6–8 REPS · −30%':(x.lo===x.hi?x.lo:x.lo+'–'+x.hi)+(e.t==='hold'?' SEC':' REPS')}${x.per?' / '+x.per.toUpperCase():''}</span></div>
+      <div class="steps">${stepper(x.id,ai,'w',wl,s.w,e.t==='db'?2:2.5,wph(s))}${stepper(x.id,ai,'r',rl,s.r,e.t==='hold'?5:1,s.drop?'6–8':x.lo===x.hi?String(x.lo):x.lo+'–'+x.hi)}</div>
+      ${pv?`<p class="prev-big mono">LAST TIME · ${pv.w?pv.w+' KG × ':''}${pv.r}${e.t==='hold'?' SEC':''}</p>`:''}
+      ${e.t==='hold'?(held?`<div class="hold on"><span class="kick">HOLDING</span><b id="holdT">${fmt((Date.now()-d.hold.t0)/1000)}</b><button class="btn red" data-act="hold-stop">STOP · LOG HOLD</button></div>`
+        :`<button class="btn ghost block" data-act="hold-start" data-hold="${x.id}:${ai}" ${d.paused?'disabled':''}>${ICON.play}START HOLD TIMER</button>`):''}
+      <button class="btn xl block ${s.drop?'red':''}" data-done="${x.id}:${ai}" ${d.paused||held?'disabled':''}>${s.drop?'COMPLETE DROP SET':'COMPLETE SET'}</button></div>`;
+  }else{
+    const nx=nextOpenEx(d,xi+1);
+    h+=`<div class="act clear" id="actSet"><div class="tape">EXERCISE CLEARED.</div><p class="mute" style="margin:10px 0">Every set logged. Edit below or move on.</p><button class="btn block" data-goex="${nx<0?n:nx}">${nx<0?'FINISH LINE »':'NEXT EXERCISE »'}</button></div>`;
+  }
+  h+=`<div class="kick" style="margin-top:16px">SET LOG · EDIT ANY SET</div><div class="sets"><span class="hd">#</span><span class="hd">${wl}</span><span class="hd">${e.t==='hold'?'SEC':'REPS'}</span><span class="hd">DONE</span>`;
+  sets.forEach((s,i)=>{
+    const pv=!s.drop&&last&&last[i],lbl=s.drop?'Drop set':'Set '+(i+1);
+    h+=`<span class="n ${s.drop?'dr':''} ${i===ai?'cur':''}" aria-hidden="true">${s.drop?'D':i+1}</span>
+      <input id="lg-${x.id}-${i}-w" class="${s.drop?'dr':''}" aria-label="${lbl} weight" inputmode="decimal" data-ex="${x.id}" data-i="${i}" data-f="w" value="${esc(s.w)}" placeholder="${esc(wph(s))}">
+      <input id="lg-${x.id}-${i}-r" class="${s.drop?'dr':''}" aria-label="${lbl} ${e.t==='hold'?'seconds':'reps'}" inputmode="numeric" data-ex="${x.id}" data-i="${i}" data-f="r" value="${esc(s.r)}" placeholder="${s.drop?'6–8':x.lo===x.hi?x.lo:x.lo+'–'+x.hi}">
+      <button class="done ${s.drop?'dr':''} ${s.done?'on':''}" data-done="${x.id}:${i}" aria-pressed="${!!s.done}" aria-label="Mark ${lbl.toLowerCase()} done" ${d.paused&&!s.done?'disabled':''}>${s.done?'✓':s.drop?'DROP':'SET'}</button>`;
+    if(pv)h+=`<span class="prev">LAST: ${pv.w?pv.w+' kg × ':''}${pv.r}</span>`;
+    if(s.drop)h+=`<span class="prev dr">DROP · −30% · 6–8 MORE REPS</span>`;
+  });
+  h+=`</div><div class="exnav"><button class="btn ghost sm" data-goex="${xi-1}">‹ ${xi?'PREV LIFT':'WARM-UP'}</button><button class="btn ghost sm" data-goex="${xi+1}">${xi+1<n?'NEXT LIFT':'FINISH'} ›</button></div></section>`;
+  return h;
+}
+function summaryStage(d){
+  const tl=tally(d),l=exList(d);
+  return `<section class="card summ"><div class="summ-art" aria-hidden="true"></div><div class="summ-in"><div class="tape red">${tl.done===tl.total?'ALL SETS COMPLETE':'FINISH LINE'}</div>
+    <h3 class="hero-t">${tl.done===tl.total?'THE BODY DID THE WORK.':'SETS STILL OPEN.'}</h3>
+    <p class="mono mute">${fmt(elapsed(d))} · ${tl.done}/${tl.total} SETS · ${Math.round(tl.vol).toLocaleString()} KG</p>
+    <ul class="exl">${l.map((x,xi)=>{const a=(d.sets[x.id]||[]).filter(s=>s.done);return `<li><span class="nm">${esc(x.label||EX[x.id].n)}<small>${a.length?a.map(s=>(s.drop?'D ':'')+(s.w?s.w+'×':'')+s.r).join(' / '):'NO SETS LOGGED'}</small></span><button class="chip" data-goex="${xi}">EDIT</button></li>`}).join('')}</ul>
+    <button class="btn xl block" style="margin-top:14px" data-act="finish">LOG SESSION »</button></div></section>`;
+}
+function mapCard(d){
+  const l=exList(d),wc=d.warm.filter(Boolean).length;
+  return `<div class="card flat map"><div class="kick">SESSION MAP · TAP TO JUMP</div><ol class="smap">
+    <li><button data-goex="-1" class="${d.cx<0?'cur':''} ${wc===WARM.length?'ok':''}" ${d.cx<0?'aria-current="step"':''}><span class="no">00</span><span class="nm">WARM-UP<small>${wc}/${WARM.length} DRILLS</small></span></button></li>
+    ${l.map((x,xi)=>{const a=d.sets[x.id]||[],dn=a.filter(s=>s.done).length;return `<li><button data-goex="${xi}" class="${xi===d.cx?'cur':''} ${a.length&&dn===a.length?'ok':''}" ${xi===d.cx?'aria-current="step"':''}><span class="no">${pad(xi+1)}</span><span class="nm">${esc(x.label||EX[x.id].n)}<small>${dn}/${a.length} SETS · REST ${restTxt(x)}</small></span><span class="pips" aria-hidden="true">${a.map(s=>`<i class="${s.done?'on':''} ${s.drop?'dr':''}"></i>`).join('')}</span></button></li>`}).join('')}
+    <li><button data-goex="${l.length}" class="${d.cx>=l.length?'cur':''}" ${d.cx>=l.length?'aria-current="step"':''}><span class="no">✓</span><span class="nm">FINISH LINE<small>REVIEW &amp; LOG</small></span></button></li>
+  </ol></div>`;
 }
 function vCal(){
   const sc=sched(),t=sc.t,st=streaks(),ws=weekStat(sc.cw),f=focus();
   const nextD=f.next&&f.next.date;
-  let h=`<h2>THE GRID</h2><div class="streak">${streakTile(st)}${weekTile(ws)}</div>`;
+  let h=pageHead('knight','SCHEDULE · STREAKS · MAKE-UPS','THE GRID','');
+  h+=`<div class="cols"><div class="col-a"><div class="streak">${streakTile(st)}${weekTile(ws)}</div>`;
   h+=`<div class="calbar"><div class="seg" role="group" aria-label="Calendar view"><button data-calmode="month" aria-pressed="${S.calMode!=='week'}">MONTH</button><button data-calmode="week" aria-pressed="${S.calMode==='week'}">WEEK</button></div>`;
   const cell=(d,outside)=>{
     const s=sc.byDate[d],ex=(sc.logsByDate[d]||[]).some(i=>sc.extras.has(i)),sel=(S.calSel||t)===d;
     const lab=`${shortDate(d)}${s?': '+W[s.key].sub+' — '+({done:'complete',missed:'missed',today:'today',up:'scheduled'})[s.st]:': rest day'}${ex?', extra session logged':''}`;
     return `<button class="cd ${s?'st-'+s.st:''} ${d===t?'is-today':''} ${d===nextD?'is-next':''} ${outside?'out':''} ${sel?'sel':''}" data-day="${d}" aria-label="${lab}" aria-pressed="${sel}"><span class="dn">${+d.slice(8)}</span>${s?`<span class="ck">${SHORT[s.key]}</span>`:''}${ex?'<i class="xd"></i>':''}</button>`;
   };
+  let side='';
   if(S.calMode==='week'){
     const m=S.calW||mondayOf(t),pw=weekOf(m),wst=weekStat(pw);
     h+=`<div class="nav"><button data-calnav="-1" aria-label="Previous week">‹</button><span>${pw>=1?'WEEK '+pw:'PRE'}</span><button data-calnav="1" aria-label="Next week">›</button></div></div>`;
@@ -410,13 +579,13 @@ function vCal(){
     h+=`<div class="cal">${DN.map(x=>`<div class="dh" aria-hidden="true">${x}</div>`).join('')}`;
     for(let d=gs;d<=ge;d=addDays(d,1))h+=cell(d,d.slice(0,7)!==ym);
     h+=`</div>`;
-    h+=`<div class="legend"><span><i style="background:var(--amber);border-color:var(--amber)"></i>COMPLETE</span><span><i style="border-color:var(--blood);background:rgba(193,18,31,.3)"></i>MISSED</span><span><i style="border:2px solid var(--amber)"></i>TODAY</span><span><i style="border-color:rgba(245,197,24,.5)"></i>SCHEDULED</span><span><i style="background:var(--ink);transform:rotate(45deg) scale(.6)"></i>EXTRA</span></div>`;
-    h+=dayDetail(S.calSel||t);
+    h+=`<div class="legend"><span><i class="lg-done"></i>COMPLETE</span><span><i class="lg-miss"></i>MISSED</span><span><i class="lg-today"></i>TODAY</span><span><i class="lg-up"></i>SCHEDULED</span><span><i class="lg-x"></i>EXTRA</span></div>`;
+    side=dayDetail(S.calSel||t);
   }
   const cw=sc.cw,last=Math.max(8,cw);
-  h+=`<div class="sect"><div class="kick">WEEKLY CONSISTENCY</div><div class="wks">`;
+  h+=`</div><div class="col-b">${side}<div class="sect"><div class="kick">WEEKLY CONSISTENCY</div><div class="wks">`;
   for(let w=1;w<=last;w++){const s=weekStat(w),fut=w>cw;h+=`<div class="wk ${fut?'fut':s.total&&s.done>=s.total?'full':s.missed?'miss':''} ${w===cw?'cur':''}"><small>W${w}${w<=8?'':'+'}</small><b>${s.done}/${s.total}</b></div>`}
-  h+=`</div></div>`;
+  h+=`</div></div></div></div>`;
   return h;
 }
 function dayDetail(d){
@@ -431,10 +600,10 @@ function dayDetail(d){
 }
 function vPlan(){
   const w=weekOf(today()),ti=w>=1?targetIdx(w):-1;
-  let h=`<h2>THE PROTOCOL</h2><p class="mute">NO GADGETS. NO SHORTCUTS. ONLY THE BODY.</p>`;
-  h+=`<div class="card"><div class="kick">1 · GOAL &amp; AESTHETIC STRATEGY</div><h3 style="margin:4px 0 6px">THE V-TAPER</h3><p class="mute" style="font-size:16px">A strong, defined look in compression wear in the shortest time possible.</p><ul class="rules">${GOAL.map(([a,b])=>`<li><b class="y">${a}</b> — ${b}</li>`).join('')}</ul></div>`;
-  h+=`<div class="kick sect">2 · STANDARDIZED 5-MINUTE UNIVERSAL WARM-UP</div>`+warmCard(null);
-  h+=`<div class="hazard"></div><div class="kick">3 · ADAPTABLE TRAINING SPLITS · SUB-60 MINUTE SESSIONS</div>`;
+  let h=pageHead('knight','8 WEEKS · 3 PHASES · 1 V-TAPER','THE PROTOCOL','NO GADGETS. NO SHORTCUTS. ONLY THE BODY.');
+  h+=`<div class="cols"><div class="col-a"><div class="card"><div class="kick">1 · GOAL &amp; AESTHETIC STRATEGY</div><h3 style="margin:4px 0 6px">THE V-TAPER</h3><p class="mute" style="font-size:16px">A strong, defined look in compression wear in the shortest time possible.</p><ul class="rules">${GOAL.map(([a,b])=>`<li><b class="y">${a}</b> — ${b}</li>`).join('')}</ul></div>`;
+  h+=`</div><div class="col-b"><div class="kick">2 · STANDARDIZED 5-MINUTE UNIVERSAL WARM-UP</div>`+warmCard(null)+`</div></div>`;
+  h+=`<div class="hazard"></div><div class="kick">3 · ADAPTABLE TRAINING SPLITS · SUB-60 MINUTE SESSIONS</div><div class="cols even">`;
   ['3','4'].forEach(sp=>{
     const s=SPLITS[sp];
     h+=`<div class="sect"><div class="row between"><h3>${s.t}</h3><span class="pill ${S.split===sp?'':'mute'}">${s.s}${S.split===sp?' · ACTIVE':''}</span></div><p class="mono mute" style="font-size:12px;margin-top:4px">${s.sch}</p>`;
@@ -442,14 +611,14 @@ function vPlan(){
       <ul class="exl">${v.ex.map((x,i)=>`<li><span class="nm">${i+1}. ${esc(x.label||EX[x.id].n)}${EX[x.id].drop?' <span class="pill red" style="font-size:9px;padding:1px 4px">P3 DROP</span>':''}<small>${repTxt(x)} · REST ${restTxt(x)}</small></span>${watch(EX[x.id].q,'FORM')}</li>`).join('')}</ul></div>`});
     h+=`</div>`;
   });
-  h+=`<p class="mono mute" style="font-size:11px">${REST_NOTE}</p>`;
+  h+=`</div><p class="mono mute" style="font-size:11px">${REST_NOTE}</p>`;
   h+=`<div class="hazard"></div><div class="kick">4 · STARTING WEIGHT TARGETS &amp; PROGRESSION SCALE</div><p class="mute" style="font-size:16px;margin-top:4px">Calibrated for a return to training at ${S.bwStart} kg — kickstart muscle memory, spare the joints.</p>
-    <div class="card flat tw"><table><tr><th>LIFT</th><th>ENTRY · WK1</th><th>MID · WK4</th><th>ADV · WK8</th><th><span class="sr-only">Form</span></th></tr>${TG.map(([id,n])=>`<tr><td>${n}</td>${EX[id].tg.map((x,i)=>`<td class="n ${i===ti?'cur':''}">${x}</td>`).join('')}<td>${watch(EX[id].q,'FORM')}</td></tr>`).join('')}</table></div>`;
-  h+=`<div class="card"><div class="row between"><h3>THE DOUBLE-PROGRESSION METHOD</h3>${watch(TECH.dp[1],'WATCH',false)}</div><ul class="rules"><li>Pick a weight you can handle for <b class="y">8 reps</b> with strict form.</li><li>Stick with that weight until you can perform <b class="y">3 sets of 10 reps</b> comfortably.</li><li>Then increase by <b class="y">2.5 kg – 5 kg</b> (or the next available dumbbell) and drop back to <b class="y">8 reps</b>.</li></ul><p class="mute" style="font-size:15px;margin-top:8px">The tracker applies this to every weighted lift using that lift's rep range: 3 sets at the top of the range → next load is pre-filled.</p></div>`;
-  h+=`<div class="hazard"></div><div class="kick">5 · PHASE BREAKDOWN &amp; TRAINING TYPES</div>`;
+    <div class="cols"><div class="col-a"><div class="card flat tw"><table><tr><th>LIFT</th><th>ENTRY · WK1</th><th>MID · WK4</th><th>ADV · WK8</th><th><span class="sr-only">Form</span></th></tr>${TG.map(([id,n])=>`<tr><td>${n}</td>${EX[id].tg.map((x,i)=>`<td class="n ${i===ti?'cur':''}">${x}</td>`).join('')}<td>${watch(EX[id].q,'FORM')}</td></tr>`).join('')}</table></div>`;
+  h+=`</div><div class="col-b"><div class="card"><div class="row between"><h3>THE DOUBLE-PROGRESSION METHOD</h3>${watch(TECH.dp[1],'WATCH',false)}</div><ul class="rules"><li>Pick a weight you can handle for <b class="y">8 reps</b> with strict form.</li><li>Stick with that weight until you can perform <b class="y">3 sets of 10 reps</b> comfortably.</li><li>Then increase by <b class="y">2.5 kg – 5 kg</b> (or the next available dumbbell) and drop back to <b class="y">8 reps</b>.</li></ul><p class="mute" style="font-size:15px;margin-top:8px">The tracker applies this to every weighted lift using that lift's rep range: 3 sets at the top of the range → next load is pre-filled.</p></div></div></div>`;
+  h+=`<div class="hazard"></div><div class="kick">5 · PHASE BREAKDOWN &amp; TRAINING TYPES</div><div class="grid3">`;
   PHASES.forEach(p=>{h+=`<div class="card ${p.k===3?'red':''}"><div class="phase"><div><div class="kick">PHASE ${p.k} · ${p.w} · ${p.rpe}</div><h3>${p.n}</h3><p class="mono mute" style="font-size:11px;margin-top:2px">${p.full.toUpperCase()}</p></div>${w>=p.from&&w<=p.to?'<span class="pill">ACTIVE</span>':''}</div>
     <ul class="rules">${p.rules.map(r=>`<li>${r}</li>`).join('')}</ul><div class="row" style="margin-top:8px">${p.tech.map(k=>watch(TECH[k][1],TECH[k][0],false,p.k===3?'red':'')).join('')}</div></div>`});
-  h+=`<div class="hazard"></div><div class="kick">6 · NUTRITION &amp; FAT LOSS FRAMEWORK</div><div class="card flat"><ul class="rules">
+  h+=`</div><div class="hazard"></div><div class="kick">6 · NUTRITION &amp; FAT LOSS FRAMEWORK</div><div class="card flat"><ul class="rules">
     <li><b class="y">Daily caloric intake:</b> ~2,000 – 2,150 kcal — slight deficit to shed lower abdominal fat while leveraging muscle memory.</li>
     <li><b class="y">Protein:</b> 140 g – 160 g daily — supports muscle synthesis and keeps the upper body full.</li>
     <li><b class="y">Hydration:</b> 3.5 – 4 litres of water daily.</li>
@@ -458,9 +627,10 @@ function vPlan(){
 }
 function vProgress(){
   const st=streaks();
-  let h=`<h2>THE RECORD</h2>`;
+  let h=pageHead('hunter','STRENGTH · VOLUME · HISTORY','THE RECORD','');
   h+=`<div class="stats"><div class="stat"><b>${S.logs.length}</b><span>SESSIONS</span></div><div class="stat"><b>${st.cur} / ${st.best}</b><span>STREAK / BEST</span></div><div class="stat"><b>${weekVol().toLocaleString()}</b><span>KG VOLUME THIS WEEK</span></div><div class="stat"><b>${S.bw.length?S.bw[S.bw.length-1].kg:'—'}</b><span>BODYWEIGHT KG</span></div></div>`;
   const ids=[...new Set(S.logs.flatMap(l=>Object.keys(l.sets)))].filter(weighted);
+  h+=`<div class="cols"><div class="col-a">`;
   if(!ids.length)h+=`<div class="card flat" style="margin-top:14px"><p class="mute">No data. Complete a session and your strength curve shows up here.</p></div>`;
   else{
     if(!ids.includes(S.chartEx))S.chartEx=ids[0];
@@ -469,7 +639,7 @@ function vProgress(){
     if(all.length){const best=all.reduce((a,b)=>e1rm(b.w,b.r)>e1rm(a.w,a.r)?b:a);h+=`<p class="mono mute" style="font-size:12px;margin-top:6px">BEST SET: ${best.w} kg × ${best.r} · EST 1RM ${e1rm(best.w,best.r).toFixed(1)} kg</p>`}
   }
   if(S.bw.length>1)h+=`<div class="kick" style="margin-top:18px">BODYWEIGHT</div><canvas id="cvb" role="img" aria-label="Bodyweight chart"></canvas>`;
-  h+=`<div class="hazard"></div><h3>HISTORY</h3>`;
+  h+=`</div><div class="col-b"><div class="hazard mob"></div><h3>HISTORY</h3>`;
   if(!S.logs.length)h+=`<p class="mute">Empty.</p>`;
   [...S.logs].reverse().slice(0,40).forEach((l,ri)=>{
     const idx=S.logs.length-1-ri;
@@ -477,33 +647,33 @@ function vProgress(){
     <div class="mono mute" style="font-size:12px;margin-top:6px;line-height:1.7">${Object.entries(l.sets).map(([id,a])=>esc(EX[id].n)+': '+a.map(s=>(s.drop?'D ':'')+(s.w?s.w+'×':'')+s.r).join(' / ')).join('<br>')}</div>
     <button class="chip" style="margin-top:8px" data-del="${idx}">DELETE</button></div>`;
   });
-  return h;
+  return h+`</div></div>`;
 }
 const weekVol=()=>{const from=mondayOf(today());let v=0;S.logs.filter(l=>l.date>=from).forEach(l=>Object.values(l.sets).forEach(a=>a.forEach(s=>v+=(s.w||0)*s.r)));return Math.round(v)};
 function vFuel(){
   const t=today(),D=S.daily[t]||{water:0,steps:0,protein:0,kcal:0};
   const bar=(l,v,[lo,hi],u,over)=>{const ok=v>=lo&&v<=hi,bad=over&&v>hi;return `<div class="card flat"><div class="row between"><span class="kick">${l}</span><span class="mono ${bad?'red-t':'y'}">${(+v).toLocaleString()}${u} <span class="mute">/ ${lo.toLocaleString()}–${hi.toLocaleString()}${u}</span></span></div><div class="bar ${bad?'red':''}"><i style="width:${Math.min(100,v/hi*100)}%"></i><b style="left:${lo/hi*100}%"></b></div><div class="kick" style="margin-top:6px">${bad?'OVER. TIGHTEN IT.':ok?'IN RANGE.':v>hi?'ABOVE RANGE.':'BELOW TARGET.'}</div></div>`};
-  let h=`<h2>FUEL</h2><p class="mute">Slight deficit to strip the lower abs. Protein to keep the upper body full.</p>`;
-  h+=bar('WATER',+D.water.toFixed(2),FUEL.water,' L');
-  h+=`<div class="row" style="margin:-4px 0 10px"><button class="btn ghost sm" data-fuel="water:0.25">+250 ML</button><button class="btn ghost sm" data-fuel="water:0.5">+500 ML</button><button class="btn ghost sm" data-fuel="water:-0.25" aria-label="Remove 250 ml">−250</button></div>`;
+  let h=pageHead('hunter','DEFICIT · PROTEIN · WATER · STEPS','FUEL','Slight deficit to strip the lower abs. Protein to keep the upper body full.');
+  h+=`<div class="cols"><div class="col-a"><div class="fuelgrid"><div>`+bar('WATER',+D.water.toFixed(2),FUEL.water,' L');
+  h+=`<div class="row" style="margin:-4px 0 10px"><button class="btn ghost sm" data-fuel="water:0.25">+250 ML</button><button class="btn ghost sm" data-fuel="water:0.5">+500 ML</button><button class="btn ghost sm" data-fuel="water:-0.25" aria-label="Remove 250 ml">−250</button></div></div>`;
   h+=bar('STEPS',D.steps,FUEL.steps,'');
   h+=bar('PROTEIN',D.protein,FUEL.protein,' g');
   h+=bar('CALORIES',D.kcal,FUEL.kcal,' kcal',true);
-  h+=`<div class="grid2"><div class="field"><label for="fs">STEPS TODAY</label><input inputmode="numeric" id="fs" value="${D.steps||''}"></div><div class="field"><label for="fp">PROTEIN G (ADD)</label><input inputmode="numeric" id="fp" placeholder="+g"></div><div class="field"><label for="fk">KCAL (ADD)</label><input inputmode="numeric" id="fk" placeholder="+kcal"></div><div class="field"><span class="lbl">&nbsp;</span><button class="btn" data-act="fuel-save">LOG</button></div></div>`;
+  h+=`</div></div><div class="col-b"><div class="grid2"><div class="field"><label for="fs">STEPS TODAY</label><input inputmode="numeric" id="fs" value="${D.steps||''}"></div><div class="field"><label for="fp">PROTEIN G (ADD)</label><input inputmode="numeric" id="fp" placeholder="+g"></div><div class="field"><label for="fk">KCAL (ADD)</label><input inputmode="numeric" id="fk" placeholder="+kcal"></div><div class="field"><span class="lbl">&nbsp;</span><button class="btn" data-act="fuel-save">LOG</button></div></div>`;
   h+=`<div class="hazard"></div><h3>BODYWEIGHT</h3><div class="row" style="margin-top:8px"><div class="field" style="flex:1;margin:0"><label for="bwi" class="sr-only">Bodyweight in kg</label><input inputmode="decimal" id="bwi" placeholder="kg · start was ${S.bwStart}"></div><button class="btn" data-act="bw-save">LOG</button></div>`;
   if(S.bw.length){const f=S.bw[0].kg,l=S.bw[S.bw.length-1].kg;h+=`<p class="mono mute" style="margin-top:8px;font-size:12px">FIRST ${f} → NOW ${l} · Δ ${(l-f>0?'+':'')+(l-f).toFixed(1)} KG</p>`}
-  h+=`<div class="card flat" style="margin-top:14px"><div class="kick">DAILY TARGETS</div><p>2,000–2,150 kcal · 140–160 g protein · 3.5–4 L water · 8,000–10,000 steps</p></div>`;
+  h+=`<div class="card flat" style="margin-top:14px"><div class="kick">DAILY TARGETS</div><p>2,000–2,150 kcal · 140–160 g protein · 3.5–4 L water · 8,000–10,000 steps</p></div></div></div>`;
   return h;
 }
 function vSystem(){
   const cw=weekOf(today());
-  return `<h2>SYSTEM</h2>
+  return pageHead('knight','SETUP · DATA · OFFLINE','SYSTEM','')+`<div class="grid2c">
   <div class="card"><h3>PROTOCOL SETUP</h3><ul class="rules"><li>Default split: <b class="y">${SPLITS[S.split].t}</b></li>${S.split==='3'?`<li>Training days: <b class="y">${[...S.days3].sort().map(d=>DN[d]).join(' / ')}</b></li>`:'<li>Training days: <b class="y">MON / TUE / THU / FRI</b></li>'}<li>Start: <b class="y">${shortDate(S.start)}</b> · Week 1 begins ${shortDate(mondayOf(S.start))}</li><li>Starting bodyweight: <b class="y">${S.bwStart} kg</b></li></ul>
     <button class="btn sm" style="margin-top:10px" data-act="setup">RECONFIGURE</button><p class="mono mute" style="font-size:11px;margin-top:8px">Changing split or days keeps every past week and all logged sessions exactly as they were. Changing the start date regenerates the schedule.</p></div>
   <div class="card flat"><h3>FLEX WEEK</h3><p class="mute" style="font-size:15px">Swap a single week between the 3-day and 4-day split. History stays intact.</p>${flexCtl(Math.max(1,cw),'THIS WEEK')}${flexCtl(Math.max(1,cw)+1,'NEXT WEEK')}</div>
   <div class="card flat"><h3>DATA</h3><p class="mute">Everything lives in this browser only. Export a backup before clearing site data or switching devices.</p><div class="row" style="margin-top:10px"><button class="btn sm" data-act="export">EXPORT</button><label class="btn ghost sm" style="cursor:pointer">IMPORT<input type="file" id="imp" accept="application/json" hidden></label></div></div>
   <div class="card flat"><h3>OFFLINE</h3><p class="mute">Add to your home screen — the app works with no signal once loaded. Form videos need a connection.</p></div>
-  <div class="card red"><h3 class="red-t">WIPE EVERYTHING</h3><button class="btn red sm" data-act="wipe" style="margin-top:8px">ERASE ALL DATA</button></div>
+  <div class="card red"><h3 class="red-t">WIPE EVERYTHING</h3><button class="btn red sm" data-act="wipe" style="margin-top:8px">ERASE ALL DATA</button></div></div>
   <p class="mono mute" style="font-size:11px;text-align:center;margin-top:20px">NIGHTSHIFT · NO GADGETS. NO SHORTCUTS. ONLY THE BODY.</p>`;
 }
 
@@ -565,15 +735,15 @@ function line(cv,pts){
   if(!pts.length)return;
   const ys=pts.map(p=>p.y);let lo=Math.min(...ys),hi=Math.max(...ys);if(lo===hi){lo-=1;hi+=1}const pr=(hi-lo)*.15;lo-=pr;hi+=pr;
   const L=40,R=14,T=14,B=24,Xp=i=>pts.length===1?(L+(Wd-L-R)/2):L+i*(Wd-L-R)/(pts.length-1),Y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
-  c.strokeStyle='#262b35';c.fillStyle='#868c9a';c.font='10px JetBrains Mono,monospace';c.lineWidth=1;
+  c.strokeStyle='#262a31';c.fillStyle='#8d939e';c.font='10px JetBrains Mono,monospace';c.lineWidth=1;
   for(let i=0;i<=3;i++){const v=lo+(hi-lo)*i/3,y=Y(v);c.beginPath();c.moveTo(L,y);c.lineTo(Wd-R,y);c.stroke();c.fillText(v.toFixed(1),2,y+3)}
-  const g=c.createLinearGradient(0,T,0,H-B);g.addColorStop(0,'rgba(245,197,24,.28)');g.addColorStop(1,'rgba(245,197,24,0)');
+  const g=c.createLinearGradient(0,T,0,H-B);g.addColorStop(0,'rgba(214,26,52,.32)');g.addColorStop(1,'rgba(214,26,52,0)');
   c.beginPath();pts.forEach((p,i)=>i?c.lineTo(Xp(i),Y(p.y)):c.moveTo(Xp(i),Y(p.y)));
   c.lineTo(Xp(pts.length-1),H-B);c.lineTo(Xp(0),H-B);c.closePath();c.fillStyle=g;c.fill();
   c.beginPath();pts.forEach((p,i)=>i?c.lineTo(Xp(i),Y(p.y)):c.moveTo(Xp(i),Y(p.y)));
-  c.strokeStyle='#f5c518';c.lineWidth=2.5;c.shadowColor='#f5c518';c.shadowBlur=8;c.stroke();c.shadowBlur=0;
-  pts.forEach((p,i)=>{c.fillStyle='#07080a';c.strokeStyle='#f5c518';c.lineWidth=2;c.beginPath();c.arc(Xp(i),Y(p.y),4,0,7);c.fill();c.stroke()});
-  c.fillStyle='#868c9a';c.textAlign='center';
+  c.strokeStyle='#e0213d';c.lineWidth=2.5;c.shadowColor='#e0213d';c.shadowBlur=8;c.stroke();c.shadowBlur=0;
+  pts.forEach((p,i)=>{c.fillStyle='#07080a';c.strokeStyle='#e9e6df';c.lineWidth=2;c.beginPath();c.arc(Xp(i),Y(p.y),4,0,7);c.fill();c.stroke()});
+  c.fillStyle='#8d939e';c.textAlign='center';
   [0,pts.length-1].forEach(i=>c.fillText(pts[i].x.slice(5),Math.min(Math.max(Xp(i),L+12),Wd-R-12),H-6));
 }
 function drawCharts(){
@@ -591,7 +761,14 @@ function render(){
   hud();
   document.querySelectorAll('#tabs button').forEach(b=>{const on=b.dataset.tab===S.tab;b.classList.toggle('on',on);on?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current')});
   $('.sysbtn').classList.toggle('on',S.tab==='system');
-  const v=$('#view');v.className='view';v.innerHTML=V[S.tab]();
+  const ae=document.activeElement,fid=ae&&ae.tagName==='INPUT'&&ae.id?ae.id:null;
+  const live=!!S.draft&&S.tab==='today';
+  const v=$('#view');v.className='view'+(live?' live':'');v.innerHTML=V[S.tab]();
+  $('#tabs [data-tab="today"]').classList.toggle('live',!!S.draft);
+  document.body.classList.toggle('in-session',live);
+  $('#rest').hidden=!(S.draft&&S.draft.rest&&S.tab!=='today');
+  if(fid){const el=document.getElementById(fid);el&&el.focus({preventScroll:true})}
+  syncWake();tick();
   requestAnimationFrame(drawCharts);
 }
 const keepScroll=fn=>{const y=window.scrollY;fn();window.scrollTo(0,y)};
@@ -602,6 +779,7 @@ document.addEventListener('click',e=>{
   if(e.target.id==='modal'){closeModal();return}
   const t=e.target.closest('button,label');if(!t)return;
   const ds=t.dataset;
+  if(S.draft||ds.start)audio();
   if(ds.obsplit){OB.split=ds.obsplit;renderOB();return}
   if(ds.obday!==undefined){const i=+ds.obday;OB.days=OB.days.includes(i)?OB.days.filter(x=>x!==i):[...OB.days,i].slice(-3);renderOB();return}
   if(ds.tab){S.tab=ds.tab;save();render();window.scrollTo(0,0);return}
@@ -609,19 +787,30 @@ document.addEventListener('click',e=>{
     if(S.draft&&!confirm('A session is in progress. Discard it and start '+W[ds.start].sub+'?'))return;
     startSession(ds.start);return}
   if(ds.warm!==undefined&&S.draft){const i=+ds.warm;S.draft.warm[i]=!S.draft.warm[i];save();keepScroll(render);return}
-  if(ds.done){
-    const [id,i]=ds.done.split(':'),s=S.draft.sets[id][+i],x=W[S.draft.key].ex.find(x=>x.id===id);
-    if(!s.done){
-      if(!(+s.r>0)){toast('ENTER REPS FIRST',true);return}
-      if(s.drop&&s.w==='')s.w=String(dropW(id));
-      s.done=true;slash();
-      if(!s.drop&&weighted(id)&&+s.w>0){
-        const prev=bestE1(id),v=e1rm(+s.w,+s.r);
-        const others=S.draft.sets[id].filter(o=>o!==s&&o.done&&!o.drop&&+o.w>0).map(o=>e1rm(+o.w,+o.r));
-        if(prev!==null&&v>prev+0.01&&(!others.length||v>Math.max(...others)+0.01))prfx(true,EX[id].n);
-      }
-      startRest(x.rest);
-    }else s.done=false;
+  if(ds.done&&S.draft){
+    const [id,i]=ds.done.split(':'),s=S.draft.sets[id][+i];
+    let started=false;
+    if(!s.done){if(!completeSet(id,+i))return;started=!!S.draft.rest}
+    else s.done=false;
+    save();keepScroll(render);
+    if(started){const rp=$('#restPanel');rp&&rp.scrollIntoView({block:'start',behavior:RM.matches?'auto':'smooth'})}
+    else if(S.draft.cx>=exList(S.draft).length)window.scrollTo({top:0,behavior:RM.matches?'auto':'smooth'});
+    return
+  }
+  if(ds.step&&S.draft){
+    const [id,i,f,dv]=ds.step.split(':'),s=S.draft.sets[id][+i];
+    const v=Math.max(0,(parseFloat(s[f])||0)+ +dv);
+    s[f]=String(f==='w'?+v.toFixed(2):Math.round(v));save();keepScroll(render);
+    const el=document.getElementById(`st-${id}-${i}-${f}`);el&&el.parentElement.querySelector(`[data-step="${ds.step}"]`)?.focus({preventScroll:true});
+    return
+  }
+  if(ds.goex!==undefined&&S.draft){
+    const n=exList(S.draft).length;S.draft.cx=Math.max(-1,Math.min(n,+ds.goex));S.draft.hold=null;save();render();
+    const sb=$('.sbar');sb&&window.scrollTo({top:Math.max(0,sb.getBoundingClientRect().top+window.scrollY-80),behavior:RM.matches?'auto':'smooth'});return
+  }
+  if(ds.ramp!==undefined&&S.draft){
+    const i=+ds.ramp;S.draft.ramp[i]=!S.draft.ramp[i];
+    if(S.draft.ramp[i])startRest(i?60:45,'ramp');
     save();keepScroll(render);return
   }
   if(ds.chart){S.chartEx=ds.chart;save();keepScroll(render);return}
@@ -640,8 +829,21 @@ document.addEventListener('click',e=>{
     D[k]=Math.max(0,+(D[k]+ +v).toFixed(2));save();keepScroll(render);return
   }
   switch(ds.act){
-    case 'rest-add':restEnd+=15000;tickRest();break;
-    case 'rest-skip':stopRest();break;
+    case 'rest-add':adjustRest(15);break;
+    case 'rest-sub':adjustRest(-15);break;
+    case 'rest-skip':if(S.draft&&S.draft.rest)endRest(false);break;
+    case 'pause':setPause(true);break;
+    case 'resume':setPause(false);break;
+    case 'warm-go':if(S.draft){const nx=nextOpenEx(S.draft,0);S.draft.cx=nx<0?exList(S.draft).length:nx;save();render();window.scrollTo(0,0)}break;
+    case 'hold-start':if(S.draft&&ds.hold){const [id,i]=ds.hold.split(':');S.draft.hold={id,i:+i,t0:Date.now()};save();keepScroll(render)}break;
+    case 'hold-stop':if(S.draft&&S.draft.hold){const h=S.draft.hold,sec=Math.floor((Date.now()-h.t0)/1000);S.draft.hold=null;
+      if(sec>0){S.draft.sets[h.id][h.i].r=String(sec);completeSet(h.id,h.i)}save();keepScroll(render);const rp=$('#restPanel');rp&&rp.scrollIntoView({block:'start'})}break;
+    case 'end':if(S.draft){const tl=tally(S.draft);showModal(`<div class="tape red">END SESSION</div><h2 id="modal-title" class="big">STAND DOWN?</h2>
+      <p class="mute">${tl.done}/${tl.total} sets complete · ${fmt(elapsed(S.draft))} on the clock.</p>
+      <button class="btn block xl" data-act="finish" style="margin-top:16px" ${tl.done?'':'disabled'}>SAVE &amp; END</button>
+      <button class="btn red block" data-act="discard" style="margin-top:10px">DISCARD SESSION</button>
+      <button class="btn ghost block" data-act="close-modal" style="margin-top:10px">KEEP TRAINING</button>`)}break;
+    case 'discard':S.draft=null;stopRest();closeModal();save();render();toast('SESSION DISCARDED');break;
     case 'abort':if(confirm('Abort session? Progress is discarded.')){S.draft=null;stopRest();save();render()}break;
     case 'finish':finishSession();break;
     case 'close-modal':closeModal();break;
@@ -665,7 +867,9 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
   const i=e.target;
-  if(i.dataset.ex&&S.draft){S.draft.sets[i.dataset.ex][+i.dataset.i][i.dataset.f]=i.value;save();return}
+  if(i.dataset.ex&&S.draft){
+    const {ex,f}=i.dataset;S.draft.sets[ex][+i.dataset.i][f]=i.value;save();
+    document.querySelectorAll(`input[data-ex="${ex}"][data-i="${i.dataset.i}"][data-f="${f}"]`).forEach(o=>{if(o!==i)o.value=i.value});return}
   if(OB&&i.id==='obbw')OB.bw=i.value;
 });
 document.addEventListener('change',e=>{
@@ -677,7 +881,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#modal').hidden)closeModal();else if(OB&&!OB.first){OB=null;renderOB()}}});
 window.addEventListener('resize',()=>requestAnimationFrame(drawCharts));
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!S.draft)render()});
+document.addEventListener('visibilitychange',()=>{syncWake();if(document.hidden)return;if(!S.draft)render();else tick()});
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 
 render();
