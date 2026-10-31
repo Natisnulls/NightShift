@@ -30,50 +30,52 @@ const ICON={
 };
 const watch=(q,label='WATCH FORM',form=true,cls='')=>`<a class="watch ${cls}" href="${yt(q,form)}" target="_blank" rel="noopener noreferrer">${ICON.play}<span>${label}</span><span class="sr-only"> (opens YouTube search in a new tab)</span></a>`;
 
-/* ---------- PLAN DATA — mapped 1:1 from compression_shirt_aesthetic_progression_plan.md ---------- */
+/* ---------- PLAN DATA — Compression Shirt Aesthetic & Fast-Track Progression Blueprint ---------- */
 // t: bb barbell | db dumbbell (per DB) | cb cable/machine | bw bodyweight reps | hold seconds
 const EX={
  squat:{n:'Barbell Back Squat',t:'bb',tg:['40 kg – 50 kg total','60 kg – 70 kg total','80 kg+ total'],s:40,q:'barbell back squat'},
- incl:{n:'Incline Dumbbell Press',t:'db',tg:['12 kg – 14 kg per DB','18 kg – 20 kg per DB','24 kg+ per DB'],s:12,q:'incline dumbbell bench press 30 degree'},
- pull:{n:'Cable Lat Pulldown',t:'cb',tg:['35 kg – 40 kg','50 kg – 55 kg','65 kg+'],s:35,drop:1,q:'cable lat pulldown'},
- lat:{n:'Dumbbell Side Lateral Raises',t:'db',tg:['5 kg – 7 kg per DB','8 kg – 10 kg per DB','12 kg per DB'],s:5,drop:1,q:'dumbbell side lateral raise'},
- knee:{n:'Hanging Knee Raises',t:'bw',q:'hanging knee raise'},
- rdl:{n:'Romanian Deadlift (RDL)',t:'bb',tg:['40 kg – 50 kg total','60 kg – 70 kg total','80 kg+ total'],s:40,q:'romanian deadlift'},
- ohp:{n:'Seated Dumbbell Shoulder Press',t:'db',tg:['10 kg – 12 kg per DB','16 kg – 18 kg per DB','20 kg+ per DB'],s:10,q:'seated dumbbell shoulder press'},
- row:{n:'Seated Cable Row',t:'cb',q:'seated cable row'},
- press:{n:'Machine Leg Press',t:'cb',q:'machine leg press'},
- dead:{n:'Deadbugs or Hollow Body Hold',t:'hold',q:'deadbug and hollow body hold'},
- bench:{n:'Flat Dumbbell Bench Press',t:'db',tg:['14 kg – 16 kg per DB','20 kg – 22 kg per DB','26 kg+ per DB'],s:14,q:'flat dumbbell bench press'},
- squat2:{n:'Barbell Back Squat or Leg Press',t:'bb',q:'barbell back squat'},
- dbrow:{n:'Single-Arm Dumbbell Row',t:'db',q:'single arm dumbbell row'},
- fly:{n:'Incline Dumbbell Flyes',t:'db',drop:1,q:'incline dumbbell fly'},
- plank:{n:'Plank with Knee Tucks',t:'bw',q:'plank with knee tucks'},
- ext:{n:'Leg Extensions',t:'cb',q:'leg extension machine'},
- calf:{n:'Calf Raises',t:'cb',q:'calf raises'},
- curl:{n:'Dumbbell Bicep Curls',t:'db',q:'dumbbell bicep curl'},
- tri:{n:'Triceps Rope Pushdowns',t:'cb',q:'triceps rope pushdown'},
- legcurl:{n:'Lying or Seated Leg Curls',t:'cb',q:'lying leg curl and seated leg curl'},
- lunge:{n:'Walking Dumbbell Lunges',t:'db',q:'walking dumbbell lunges'},
- plank2:{n:'Plank',t:'hold',q:'plank'},
- dead2:{n:'Deadbugs or Hollow Holds',t:'hold',q:'deadbug and hollow hold'}
+front:{n:'Front Squat',t:'bb',q:'front squat'},
+incl:{n:'Incline Dumbbell Bench Press (30°)',t:'db',tg:['12 kg – 14 kg per DB','18 kg – 20 kg per DB','24 kg+ per DB'],s:12,q:'incline dumbbell bench press 30 degree'},
+bench:{n:'Flat Dumbbell Bench Press',t:'db',tg:['14 kg – 16 kg per DB','20 kg – 22 kg per DB','26 kg+ per DB'],s:14,q:'flat dumbbell bench press'},
+pull:{n:'Neutral-Grip Lat Pulldown or Weighted Pull-Ups',t:'cb',tg:['35 kg – 40 kg','50 kg – 55 kg','65 kg+'],s:35,q:'neutral grip lat pulldown weighted pull ups'},
+widepull:{n:'Wide-Grip Lat Pulldown',t:'cb',drop:1,q:'wide grip lat pulldown'},
+lat:{n:'Dumbbell Side Lateral Raises',t:'db',tg:['5 kg – 7 kg per DB','8 kg – 10 kg per DB','12 kg per DB'],s:5,drop:1,q:'dumbbell side lateral raise'},
+dips:{n:'Bodyweight Dips (or Weighted)',t:'bw',q:'bodyweight dips proper form'},
+row:{n:'Chest-Supported T-Bar / DB Row',t:'cb',q:'chest supported t bar row'},
+meadows:{n:'Meadows Row or Single-Arm DB Row',t:'db',q:'meadows row single arm dumbbell row'},
+rdl:{n:'Romanian Deadlift (RDL)',t:'bb',tg:['40 kg – 50 kg total','60 kg – 70 kg total','80 kg+ total'],s:40,q:'romanian deadlift'},
+ohpd:{n:'Standing Barbell Overhead Press (OHP)',t:'bb',q:'standing barbell overhead press'},
+ohp:{n:'Seated Dumbbell Overhead Press',t:'db',tg:['10 kg – 12 kg per DB','16 kg – 18 kg per DB','20 kg+ per DB'],s:10,q:'seated dumbbell overhead press'},
+fly:{n:'Incline Cable Flyes',t:'cb',drop:1,q:'incline cable fly'},
+face:{n:'Cable Face Pulls',t:'cb',q:'cable face pulls'},
+lunge:{n:'Walking Dumbbell Lunges',t:'db',q:'walking dumbbell lunges'},
+calf:{n:'Standing Calf Raises',t:'cb',q:'standing calf raises'},
+knee:{n:'Hanging Knee/Leg Raises',t:'bw',q:'hanging knee leg raises'},
+press:{n:'Machine Leg Press or Goblet Squat',t:'cb',q:'machine leg press goblet squat'},
+legcurl:{n:'Lying Leg Curls',t:'cb',q:'lying leg curl'},
+curl:{n:'Incline Dumbbell Curls',t:'db',q:'incline dumbbell curl'},
+tri:{n:'Triceps Rope Pushdowns',t:'cb',q:'triceps rope pushdown'},
+rear:{n:'Cable Rear Delt Flyes / Face Pulls',t:'cb',q:'cable rear delt fly face pull'},
+dead:{n:'Deadbugs or Hollow Body Hold',t:'hold',q:'deadbug hollow body hold'},
+hammer:{n:'Dumbbell Hammer Curls',t:'db',q:'dumbbell hammer curl'},
+trioh:{n:'Overhead Cable Triceps Extension',t:'cb',q:'overhead cable triceps extension'}
 };
-// rs (rest source): p = stated in plan · d = 4-day split lists no rest; taken from the same lift in the 3-day split · x = not in plan, 60s default
 const X=(id,sets,lo,hi,rest,rs='p',label=null,per=null)=>({id,sets,lo,hi,rest,rs,label,per});
 const W={
- A:{name:'LEG & CHEST PRIMARY',sub:'WORKOUT A',split:'3',ex:[X('squat',3,8,10,90),X('incl',3,8,10,90,'p','Incline Dumbbell Bench Press (30°)'),X('pull',3,10,12,60),X('lat',3,12,15,45),X('knee',3,12,15,60)]},
- B:{name:'POSTERIOR CHAIN & SHOULDER PRIMARY',sub:'WORKOUT B',split:'3',ex:[X('rdl',3,8,10,90,'p','Dumbbell or Barbell RDL'),X('ohp',3,8,10,90),X('row',3,10,12,60),X('press',3,10,12,60),X('dead',3,45,60,45)]},
- C:{name:'CHEST DENSITY & LAT WIDTH',sub:'WORKOUT C',split:'3',ex:[X('bench',3,8,10,90),X('squat2',3,10,12,90),X('dbrow',3,10,12,60,'p',null,'side'),X('fly',3,12,15,60),X('plank',3,12,15,45)]},
- U1:{name:'UPPER A — CHEST & BACK FOCUS',sub:'UPPER A',split:'4',ex:[X('incl',3,8,10,90,'d'),X('pull',3,10,12,60,'d'),X('bench',3,10,12,90,'d'),X('row',3,10,12,60,'d'),X('lat',4,12,15,45,'d')]},
- L1:{name:'LOWER A — QUADS & LOWER ABS',sub:'LOWER A',split:'4',ex:[X('squat',3,8,10,90,'d'),X('press',3,10,12,60,'d'),X('ext',3,12,15,60,'x'),X('knee',4,12,15,60,'d'),X('calf',3,15,15,60,'x')]},
- U2:{name:'UPPER B — SHOULDERS & ARMS FOCUS',sub:'UPPER B',split:'4',ex:[X('ohp',3,8,10,90,'d'),X('dbrow',3,10,12,60,'d',null,'side'),X('fly',3,12,15,60,'d'),X('curl',3,10,12,60,'x'),X('tri',3,10,12,60,'x')]},
- L2:{name:'LOWER B — HAMSTRINGS & CORE',sub:'LOWER B',split:'4',ex:[X('rdl',3,8,10,90,'d','Romanian Deadlift (RDL)'),X('legcurl',3,10,12,60,'x'),X('lunge',3,10,10,60,'x',null,'leg'),X('dead2',3,60,60,45,'d'),X('plank2',3,60,60,60,'x')]}
+ A:{name:'HEAVY UPPER BODY & UPPER CHEST FOCUS',sub:'UPPER A',split:'3',ex:[X('incl',3,8,10,90),X('pull',3,8,10,90),X('dips',3,10,12,60),X('row',3,10,12,60),X('lat',4,12,15,45)]},
+ B:{name:'POSTERIOR CHAIN & ATHLETIC BASE',sub:'LOWER',split:'3',ex:[X('squat',3,8,10,90),X('rdl',3,8,10,90),X('lunge',3,10,10,60,'p',null,'leg'),X('calf',3,12,15,45),X('knee',3,12,15,45)]},
+ C:{name:'SHOULDER BREADTH & LAT WIDTH FOCUS',sub:'UPPER B',split:'3',ex:[X('ohpd',3,8,10,90),X('widepull',3,10,12,60),X('fly',3,12,15,60),X('meadows',3,10,12,60,'p',null,'side'),X('face',3,12,15,45)]},
+ U1:{name:'CHEST & BACK',sub:'WORKOUT 1',split:'4',ex:[X('incl',3,8,10,60,'d'),X('pull',3,8,10,60,'d'),X('bench',3,10,12,60,'d'),X('row',3,10,12,60,'d'),X('tri',3,12,15,60,'x')]},
+ L1:{name:'SHOULDERS & ARMS',sub:'WORKOUT 2',split:'4',ex:[X('ohp',3,8,10,60,'d'),X('lat',4,12,15,60,'d'),X('curl',3,10,12,60,'x'),X('tri',3,10,12,60,'x'),X('rear',3,12,15,60,'x'),X('knee',3,12,15,60,'d')]},
+ U2:{name:'LEGS',sub:'WORKOUT 3',split:'4',ex:[X('squat',3,8,10,60,'d'),X('rdl',3,8,10,60,'d'),X('press',3,10,12,60,'x'),X('legcurl',3,10,12,60,'x'),X('calf',3,12,15,60,'x'),X('dead',3,45,60,60,'x')]},
+ L2:{name:'FUNCTIONAL & AESTHETIC HYPERTROPHY',sub:'WORKOUT 4',split:'4',ex:[X('ohpd',3,8,10,60,'d'),X('meadows',3,10,12,60,'d',null,'side'),X('dips',3,10,12,60,'x'),X('lat',3,12,15,60,'x'),X('hammer',3,12,15,60,'x'),X('trioh',3,12,15,60,'x')]}
 };
-const SHORT={A:'A',B:'B',C:'C',U1:'UA',L1:'LA',U2:'UB',L2:'LB'};
+const SHORT={A:'A',B:'B',C:'C',U1:'1',L1:'2',U2:'3',L2:'4'};
 const ROT3=['A','B','C'];
 const DAYS4={0:'U1',1:'L1',3:'U2',4:'L2'};
 const SPLITS={
- '3':{t:'3-DAY FULL-BODY SPLIT',s:'PRIMARY SCHEDULE',sch:'Monday / Wednesday / Friday (or any 3 non-consecutive days)',keys:['A','B','C']},
- '4':{t:'4-DAY UPPER / LOWER SPLIT',s:'FLEX WEEK SCHEDULE',sch:'Mon (Upper A) / Tue (Lower A) / Thu (Upper B) / Fri (Lower B)',keys:['U1','L1','U2','L2']}
+ '3':{t:'3-DAY UPPER / LOWER / UPPER SPLIT',s:'DEFAULT SPLIT',sch:'Monday (Upper A) / Wednesday (Lower) / Friday (Upper B)',keys:['A','B','C']},
+ '4':{t:'4-DAY CHEST / BACK · SHOULDERS / ARMS · LEGS · UPPER',s:'FLEX WEEK SPLIT',sch:'Mon (Chest & Back) / Tue (Shoulders & Arms) / Thu (Legs) / Fri (Upper)',keys:['U1','L1','U2','L2']}
 };
 const GOAL=[
  ['UPPER CHEST & SHOULDERS','Upper chest fullness (incline presses) and lateral shoulder breadth (side raises) to fill out the upper shirt.'],
